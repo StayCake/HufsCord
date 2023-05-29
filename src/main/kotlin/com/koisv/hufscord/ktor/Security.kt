@@ -1,11 +1,14 @@
 package com.koisv.hufscord.ktor
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.annotation.JsonProperty
-import com.koisv.hufscord.*
 import com.koisv.hufscord.Events.verifyThreadClose
-import com.koisv.hufscord.Schedules.Companion.myFilter
+import com.koisv.hufscord.data.GoogleInfo
+import com.koisv.hufscord.data.GoogleSession
+import com.koisv.hufscord.data.LinkedUser
+import com.koisv.hufscord.discordInit
+import com.koisv.hufscord.instance
+import com.koisv.hufscord.instanceBot
 import com.koisv.hufscord.ktor.KtorClient.httpClient
+import com.koisv.hufscord.memberList
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.behavior.createTextChannel
 import dev.kord.core.behavior.getChannelOf
@@ -26,16 +29,13 @@ import io.ktor.server.sessions.*
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.serialization.Serializable
-import kotlin.collections.listOf
-import kotlin.collections.mutableMapOf
 import kotlin.collections.set
 
 fun Application.configureSecurity() {
     val redirects = mutableMapOf<String, String>()
     authentication {
         oauth("auth-oauth-google") {
-            urlProvider = { "http://hca.koisv.com/finish" }
+            urlProvider = { "https://hca.koisv.com/finish" }
             providerLookup = {
                 OAuthServerSettings.OAuth2ServerSettings(
                     name = "google",
@@ -96,12 +96,15 @@ fun Application.configureSecurity() {
                             findMember.guild.getChannelOf<TextChannel>(Snowflake(1111638858686283827)),
                             data.linkedDSU
                         )
-                        call.respondText("인증되었습니다! 이제 창을 닫으셔도 됩니다.")
+                        call.respondText("""<html><body><script>
+                            |alert("인증이 완료되었습니다!")
+                            |window.close()
+                            |</script></body></html>""".trimMargin(),
+                            ContentType.Text.Html, HttpStatusCode.OK)
                     } else call.respondText("서버에 참여 후 인증하셔야 합니다!")
-                } else if (!memberList.none { it.linkedDSU == data.linkedDSU && it.googleID == data.googleID }) {
+                } else if (memberList.any { it.linkedDSU == data.linkedDSU && it.googleID == data.googleID }) {
                     val findMember = instance.guilds.first().members.filter {it.asUser().id == data.linkedDSU}.firstOrNull()
                     if (findMember != null) {
-                        memberList.add(data)
                         findMember.addRole(
                             Snowflake(1111677272693420052),
                             "인증 복원 자동 지급 | 외대생"
@@ -111,11 +114,16 @@ fun Application.configureSecurity() {
                             findMember.guild.getChannelOf<TextChannel>(Snowflake(1111638858686283827)),
                             data.linkedDSU
                         )
-                        call.respondText("이전 인증 이력이 복원되었습니다! 이제 창을 닫으셔도 됩니다.")
+                        call.respondText("""<html><body><script>
+                            |alert("이전 인증 이력이 복원되었습니다!\n이제 창을 닫으셔도 됩니다.")
+                            |window.close()
+                            |</script></body></html>""".trimMargin(),
+                        ContentType.Text.Html, HttpStatusCode.OK)
+                        //call.respondText("이전 인증 이력이 복원되었습니다! 이제 창을 닫으셔도 됩니다.")
                     } else call.respondText("서버에 참여 후 인증하셔야 합니다!")
                 } else call.respondText("인증 이력이 이미 존재합니다! 관리자에게 연락바랍니다.")
             } else {
-                val redirectUrl = URLBuilder("http://hca.koisv.com/login").run {
+                val redirectUrl = URLBuilder("https://hca.koisv.com/login").run {
                     parameters.append("redirectUrl", call.request.uri)
                     build()
                 }
@@ -155,9 +163,11 @@ suspend fun Member.campusFind(major: String) {
         .split("sm_wrap03")[1]
         .split("sm_wrap04")[0]
         .replace(Regex("/[ㆍ·]/gm"), "-")
-    val academy = campusList.split("대학원")[2].myFilter()
-    val seoul = campusList.split("캠퍼스")[1].myFilter()
-    val global = campusList.split("캠퍼스")[2].myFilter()
+    val academy = campusList.split("<h3 class=\"sm_link0303\">")[1]
+    val global = campusList.split("<h3 class=\"sm_link0302\">")[1]
+        .split("<h3 class=\"sm_link0303\">")[0]
+    val seoul = campusList.split("<h3 class=\"sm_link0301\">")[1]
+        .split("<h3 class=\"sm_link0302\">")[0]
 
     when (major) {
         in academy -> {
@@ -196,16 +206,3 @@ suspend fun Member.campusFind(major: String) {
     }
 }
 
-data class GoogleSession(val state: String, val token: String)
-
-@Serializable
-@JsonIgnoreProperties(ignoreUnknown = true)
-data class GoogleInfo(
-    val id: String,
-    val name: String,
-    @JsonProperty("given_name") val givenName: String,
-    @JsonProperty("family_name") val familyName: String,
-    val link: String,
-    val picture: String,
-    val locale: String
-)

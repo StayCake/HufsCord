@@ -1,6 +1,10 @@
 package com.koisv.hufscord
 
 import com.koisv.hufscord.Schedules.Companion.myFilter
+import com.koisv.hufscord.data.CafeteriaCode
+import com.koisv.hufscord.data.DayMeal
+import com.koisv.hufscord.data.Meal
+import com.koisv.hufscord.data.SitePost
 import com.koisv.hufscord.ktor.KtorClient
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.behavior.channel.createEmbed
@@ -11,14 +15,18 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
-import kotlinx.datetime.Clock
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.toJavaLocalDate
+import kotlinx.datetime.*
+import kotlinx.datetime.TimeZone
 import java.time.format.DateTimeFormatter
+import java.time.temporal.WeekFields
+import java.util.*
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 class Schedules {
     companion object {
+        private val date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+
         fun String.myFilter(): String {
             return this.filterNot { it == '\t' || it == '\n' }.trim()
         }
@@ -75,6 +83,7 @@ class Schedules {
                 }
             }
         }
+
         private suspend fun SitePost.send(postNum: Int, channel: Long) {
             val channelId = Snowflake(channel)
             instance.guilds.first().getChannelOf<NewsChannel>(channelId)
@@ -114,8 +123,136 @@ class Schedules {
                     timestamp = Clock.System.now()
                 }
         }
-    }
 
+        suspend fun getFood(): Job {
+            return CoroutineScope(Dispatchers.IO).launch {
+                while (isActive) {
+                    if (date.dayOfWeek.value == 1
+                        && mealCache.values.any { meals -> meals.any { it.key.daysUntil(date.date) >= 13 } }) {
+                        CafeteriaCode.values().forEach {
+                            mealCache[it.strCode] = requestFood(it.intCode)
+                            delay(1.minutes)
+                        }
+                    }
+                }
+            }
+        }
+
+        private suspend fun requestFood(id: Int): MutableMap<LocalDate, DayMeal> {
+            val reqData = KtorClient.httpClient.get {
+                val firstDay = date.date.toJavaLocalDate()
+                    .with(WeekFields.of(Locale.KOREA).dayOfWeek(), 2L)
+                url.set {
+                    protocol = URLProtocol.HTTPS
+                    host = "wis.hufs.ac.kr"
+                    path("jsp/HUFS/cafeteria/viewWeek.jsp")
+                }
+                parameters {
+                    parameter("startDt", firstDay.minusDays(7)
+                        .format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+                    )
+                    parameter("endDt", firstDay.plusDays(7)
+                        .format(DateTimeFormatter.ofPattern("yyyyMMdd")))
+                    parameter("caf_id", "h$id")
+                }
+            }.bodyAsText().lowercase()
+
+            val rows = reqData.split("<tr height='35'>").toMutableList()
+            rows.removeFirst()
+            val dates = rows.removeFirst().dateArray()
+            val data = rows.map { it.tableData() }
+
+            val menuTable = mutableListOf<Array<Any?>>()
+            data.forEach { work ->
+                val type = work.toMutableList()
+                val typeLabel = type.removeFirst()[0]
+                val name = typeLabel
+                    .split("!")[0]
+                val times = typeLabel
+                    .split("!")[1]
+                    .getTimes()
+                val table = arrayOfNulls<Any>(15)
+                table[0] = times
+                type.forEachIndexed { index, dayMenu ->
+                    val meal = dayMenu.menuFin(name, times)
+                    table[index + 1] = meal
+                }
+                menuTable.add(table)
+            }
+            val mainCache = mealCache[id.toString()] ?: mutableMapOf()
+            mainCache.clear()
+            for (column in 1 until menuTable[0].size) {
+                val date = dates[column - 1]
+                if (date != null) mainCache[date] = DayMeal(
+                    lazy {
+                        val fullList = arrayOfNulls<Meal>(menuTable.size)
+                        for (row in 0 until menuTable.size) {
+                            fullList[row] = menuTable[row][column] as Meal?
+                        }
+                        return@lazy fullList
+                    }.value.toList(), column == 1,
+                    column == menuTable[0].size - 1
+                )
+            }
+            return mainCache
+        }
+
+        private fun List<String>.menuFin(name: String, times: List<LocalTime>): Meal {
+            val dataRaw = this.toMutableList()
+            val rawPrice = dataRaw.removeLast()
+            if (!rawPrice.endsWith("원"))
+                return Meal(Pair(times[0], times[1]), listOf(), "NONE")
+            val price = rawPrice.filter { it.isDigit() }.toInt()
+            val kcal = if (dataRaw.last().endsWith("kcal"))
+                dataRaw.removeLast().removeSuffix("kcal").toInt() else null
+            return Meal(
+                Pair(times[0], times[1]),
+                dataRaw.filterNot { it == "[한정특식]" },
+                name, dataRaw.first() == "[한정특식]",
+                kcal ?: 0, price
+            )
+        }
+        private fun String.tableData(): List<List<String>> {
+            return split("liststyle")
+                .asSequence()
+                .map { it.replace("<br>", "!") }
+                .map { it.replace("<한정특식>", "[한정특식]") }
+                .map { it.split("</td>") }
+                .map { it.map { d -> d.filterNot { c -> c.isWhitespace() } } }
+                .map { it.map { d -> d.split(">")[ d.count { c -> '>' == c }] } }
+                .map { it.filter { d -> d.isNotBlank() } }
+                .map { it.filterNot { d -> d == "<tdalign='center'class='" }}
+                .toList()
+        }
+        private fun String.dateArray(): Array<LocalDate?> {
+            val format = DateTimeFormatter.ofPattern("yyyy/MM/dd(E)")
+                .withLocale(Locale.KOREAN)
+            val rawData = split("</td>")
+                .asSequence()
+                .map { it.replace("<br>", "!") }
+                .map { it.filterNot { c -> c.isWhitespace() } }
+                .map { it.split(">")[it.count { c -> '>' == c }] }
+                .filter { it.isNotBlank() }
+                .toMutableList()
+            val array: Array<LocalDate?> = arrayOfNulls(14)
+            rawData.removeFirst()
+            rawData.map {
+                java.time.LocalDate.parse("${java.time.LocalDate.now().year}/$it", format)
+                    .toKotlinLocalDate()
+            }.forEachIndexed { index, localDate ->
+                array[index] = localDate
+            }
+            return array
+        }
+        private fun String.getTimes(): List<LocalTime> {
+            val format = DateTimeFormatter.ofPattern("HHmm")
+            val times = this.split("~")
+            return listOf(
+                java.time.LocalTime.parse(times[0], format).toKotlinLocalTime(),
+                java.time.LocalTime.parse(times[1], format).toKotlinLocalTime()
+            )
+        }
+    }
 }
 
 fun MutableList<String>.finalize(): List<SitePost> {
@@ -152,11 +289,3 @@ fun MutableList<String>.finalize(): List<SitePost> {
     return newList
 }
 
-data class SitePost(
-    val number: Int,
-    val code: Int,
-    val type: String,
-    val title: String,
-    val poster: String,
-    val date: LocalDate
-)

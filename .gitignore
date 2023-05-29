@@ -41,7 +41,7 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-src/main/kotlin/com/koisv/hufscord/DataManager.kt
+DataManager.kt
 DataReader/
 key.txt
 *.dat

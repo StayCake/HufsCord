@@ -1,7 +1,7 @@
 package com.koisv.hufscord
 
-import com.koisv.hufscord.DataManager.load
-import com.koisv.hufscord.ktor.GoogleSession
+import com.koisv.hufscord.data.*
+import com.koisv.hufscord.data.DataManager.load
 import com.koisv.hufscord.ktor.configureSecurity
 import dev.kord.cache.map.MapLikeCollection
 import dev.kord.cache.map.internal.MapEntryCache
@@ -18,7 +18,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.sessions.*
 import kotlinx.coroutines.Job
 import kotlinx.datetime.Instant
-import kotlinx.serialization.Serializable
+import kotlinx.datetime.LocalDate
 import mu.KLogger
 
 lateinit var autoSave: Job
@@ -28,16 +28,9 @@ lateinit var Uptime: Instant
 lateinit var logger: KLogger
 lateinit var lastNums: LastNum
 
-@Serializable
-data class LastNum(
-    var n1Post: Int = 0,
-    var n2Post: Int = 0,
-    var n3Post: Int = 0,
-    var n4Post: Int = 0
-)
-
 fun discordInit() = ::instance.isInitialized
 val memberList = mutableListOf<LinkedUser>()
+val mealCache = mutableMapOf<String, MutableMap<LocalDate, DayMeal>>()
 val webHost = embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
 
 fun Application.module() {
@@ -50,6 +43,7 @@ fun Application.module() {
 suspend fun main(args: Array<String>) {
     webHost.start(wait = false)
     memberList.load()
+    mealCache.putAll(DataManager.cacheLoad())
     lastNums = load()
     val bots = DataManager.botLoad()
 
