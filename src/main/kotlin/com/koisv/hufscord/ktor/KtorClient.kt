@@ -24,7 +24,7 @@ object KtorClient {
                     kordLogger.debug(message)
                 }
             }
-            level = LogLevel.ALL
+            level = LogLevel.BODY
         }
 
         install(HttpTimeout) {

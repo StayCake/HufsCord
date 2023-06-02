@@ -1,9 +1,6 @@
 package com.koisv.hufscord
 
-import com.koisv.hufscord.data.CafeteriaCode
-import com.koisv.hufscord.data.DataManager
-import com.koisv.hufscord.data.DayMeal
-import com.koisv.hufscord.data.Meal
+import com.koisv.hufscord.data.*
 import com.koisv.hufscord.ktor.KtorClient.httpClient
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.DiscordPartialEmoji
@@ -30,13 +27,18 @@ import kotlin.system.exitProcess
 object InteractionHandler {
     suspend fun regCmd() {
         instance.createGuildChatInputCommand(
-            Snowflake(1111607223479697479), "vms", "VerifyMessage"
+            if (!instanceBot.isTest)
+                Snowflake(1111607223479697479) else tGid,
+            "vms", "VerifyMessage"
         )
         instance.createGuildChatInputCommand(
-            Snowflake(1111607223479697479), "off", "Shutdown"
+            if (!instanceBot.isTest)
+                Snowflake(1111607223479697479) else tGid,
+            "off", "Shutdown"
         )
         instance.createGuildChatInputCommand(
-            Snowflake(1111607223479697479),
+            if (!instanceBot.isTest)
+                Snowflake(1111607223479697479) else tGid,
             "설캠밥",
             "아 학식 알려주세요 현기증 난단 말이에요"
         ) {
@@ -47,7 +49,8 @@ object InteractionHandler {
             }
         }
         instance.createGuildChatInputCommand(
-            Snowflake(1111607223479697479),
+            if (!instanceBot.isTest)
+                Snowflake(1111607223479697479) else tGid,
             "글캠밥",
             "아 학식 알려주세요 현기증 난단 말이에요"
         ) {
@@ -160,8 +163,9 @@ object InteractionHandler {
             }"
         }
         field {
-            name = if (meal.isSpecial) "특별식" else "일반식"
-            value = meal.menus.joinToString("\n")
+            name = if (meal.isSpecial) "특별식" else if (meal.menus.isNotEmpty()) "일반식" else "<메뉴 없음>"
+            value = if (meal.menus.isNotEmpty()) meal.menus.joinToString("\n")
+            else "오늘은 메뉴가 없어요~"
         }
         timestamp = Clock.System.now()
     }
@@ -177,9 +181,9 @@ object InteractionHandler {
         interactionButton(
             if (meals.isFirstDay) ButtonStyle.Danger else ButtonStyle.Primary,
             "meal${if (codeFind?.intCode!! > 200) "G" else "S"}-$myCode-${
-            day.minus(DatePeriod(days = 1)).toJavaLocalDate()
-                .format(dateFormat)
-        }-${index-1}") {
+                day.minus(DatePeriod(days = 1)).toJavaLocalDate()
+                    .format(dateFormat)
+            }-${index-1}") {
             emoji = DiscordPartialEmoji(null , "◀")
             label = "어제"
             disabled = meals.isFirstDay
@@ -187,8 +191,8 @@ object InteractionHandler {
         for (i in meals.meals.indices) {
             interactionButton(ButtonStyle.Primary,
                 "meal${if (codeFind.intCode > 200) "G" else "S"}-$myCode-${
-                day.toJavaLocalDate().format(dateFormat)
-            }-$i") {
+                    day.toJavaLocalDate().format(dateFormat)
+                }-$i") {
                 emoji = DiscordPartialEmoji(null , "▶")
                 label = meals.meals[index]?.name
                 disabled = i == 0
@@ -197,9 +201,9 @@ object InteractionHandler {
         interactionButton(
             if (meals.isLastDay) ButtonStyle.Danger else ButtonStyle.Primary,
             "mealG-$myCode-${
-            day.plus(DatePeriod(days = 1)).toJavaLocalDate()
-                .format(dateFormat)
-        }-${index+1}") {
+                day.plus(DatePeriod(days = 1)).toJavaLocalDate()
+                    .format(dateFormat)
+            }-${index+1}") {
             emoji = DiscordPartialEmoji(null , "▶")
             label = "내일"
             disabled = meals.isLastDay

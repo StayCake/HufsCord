@@ -79,6 +79,29 @@ class Schedules {
                             }
                         }
                     }
+                    /*val finPost = mutableListOf<SitePost>()
+                    val allPosts = noticeData.finalize()
+                        .sortedByDescending { it.number }
+                    val (lpNumber) = allPosts.first()
+                    when (type) {
+                        1 -> if (lastNums.n1Post < lpNumber) {
+                            finPost.addAll(allPosts.take(lpNumber - lastNums.n1Post))
+                            lastNums.n1Post = lpNumber
+                        }
+                        2 -> if (lastNums.n2Post < lpNumber) {
+                            finPost.addAll(allPosts.take(lpNumber - lastNums.n2Post))
+                            lastNums.n2Post = lpNumber
+                        }
+                        3 -> if (lastNums.n3Post < lpNumber) {
+                            finPost.addAll(allPosts.take(lpNumber - lastNums.n3Post))
+                            lastNums.n3Post = lpNumber
+                        }
+                        else -> if (lastNums.n4Post < lpNumber) {
+                            finPost.addAll(allPosts.take(lpNumber - lastNums.n4Post))
+                            lastNums.n4Post = lpNumber
+                        }
+                    }
+                    finPost.forEach { it.send(type, 1111639241861115965) }*/
                     delay(3.hours)
                 }
             }

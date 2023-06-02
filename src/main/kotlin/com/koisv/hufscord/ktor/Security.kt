@@ -31,11 +31,18 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlin.collections.set
 
+val urMap = mapOf(
+    Pair("컴퓨터전자시스템공학전공", "컴퓨터공학부"),
+)
+val drMap = mapOf(
+    Pair("컴퓨터전자시스템공학부", "컴퓨터공학부"),
+)
+
 fun Application.configureSecurity() {
     val redirects = mutableMapOf<String, String>()
     authentication {
         oauth("auth-oauth-google") {
-            urlProvider = { "https://hca.koisv.com/finish" }
+            urlProvider = { "https://hc${if(instanceBot.isTest) "t" else "a"}.koisv.com/finish" } //
             providerLookup = {
                 OAuthServerSettings.OAuth2ServerSettings(
                     name = "google",
@@ -119,9 +126,10 @@ fun Application.configureSecurity() {
                             |window.close()
                             |</script></body></html>""".trimMargin(),
                         ContentType.Text.Html, HttpStatusCode.OK)
-                        //call.respondText("이전 인증 이력이 복원되었습니다! 이제 창을 닫으셔도 됩니다.")
                     } else call.respondText("서버에 참여 후 인증하셔야 합니다!")
-                } else call.respondText("인증 이력이 이미 존재합니다! 관리자에게 연락바랍니다.")
+                } else if (memberList.any { it.linkedDSU == data.linkedDSU || it.googleID == data.googleID })
+                    call.respondText("인증 이력이 존재하는 계정입니다! 관리자에게 문의하세요.")
+                else call.respondText("서버에 참여 후 인증하셔야 합니다!")
             } else {
                 val redirectUrl = URLBuilder("https://hca.koisv.com/login").run {
                     parameters.append("redirectUrl", call.request.uri)
@@ -162,12 +170,21 @@ suspend fun Member.campusFind(major: String) {
     }.bodyAsText()
         .split("sm_wrap03")[1]
         .split("sm_wrap04")[0]
-        .replace(Regex("/[ㆍ·]/gm"), "-")
+        //.replace(Regex("/[ㆍ·]/gm"), "-") // 사이트 좀 이쁘게 만들어 주세요 제발
+
+    var workMj = major
+    for ((old, new) in drMap) if (old in campusList) campusList.replace(old, new)
+    for ((old, new) in urMap) if (old in workMj)
+        workMj.replace(old, new).also { workMj = it }
+
     val academy = campusList.split("<h3 class=\"sm_link0303\">")[1]
+        .filter { it.isLetter() }
     val global = campusList.split("<h3 class=\"sm_link0302\">")[1]
         .split("<h3 class=\"sm_link0303\">")[0]
+        .filter { it.isLetter() }
     val seoul = campusList.split("<h3 class=\"sm_link0301\">")[1]
         .split("<h3 class=\"sm_link0302\">")[0]
+        .filter { it.isLetter() }
 
     when (major) {
         in academy -> {

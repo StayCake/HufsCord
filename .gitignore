@@ -41,6 +41,7 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+logs/
 DataManager.kt
 DataReader/
 key.txt

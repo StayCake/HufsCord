@@ -17,9 +17,10 @@ repositories {
 }
 
 dependencies {
-    implementation("org.slf4j:slf4j-simple:2.0.5")
+    implementation("org.slf4j:slf4j-api:2.0.7")
     implementation("dev.kord:kord-core:$kordVersion")
     implementation("dev.kord:kord-gateway:$kordVersion")
+    implementation("ch.qos.logback:logback-classic:1.4.7")
     implementation("io.ktor:ktor-server-auth:$ktorVersion")
     implementation("io.ktor:ktor-client-auth:$ktorVersion")
     implementation("io.ktor:ktor-client-core:$ktorVersion")
@@ -36,6 +37,7 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-client-logging-jvm:2.3.0")
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion")
 }
 

@@ -27,11 +27,11 @@ lateinit var instanceBot: Bot
 lateinit var Uptime: Instant
 lateinit var logger: KLogger
 lateinit var lastNums: LastNum
+lateinit var webHost: NettyApplicationEngine
 
 fun discordInit() = ::instance.isInitialized
 val memberList = mutableListOf<LinkedUser>()
 val mealCache = mutableMapOf<String, MutableMap<LocalDate, DayMeal>>()
-val webHost = embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
 
 fun Application.module() {
     configureSecurity()
@@ -41,7 +41,6 @@ fun Application.module() {
 }
 
 suspend fun main(args: Array<String>) {
-    webHost.start(wait = false)
     memberList.load()
     mealCache.putAll(DataManager.cacheLoad())
     lastNums = load()
@@ -61,14 +60,22 @@ suspend fun main(args: Array<String>) {
             members { cache, description ->
                 MapEntryCache(cache, description, MapLikeCollection.concurrentHashMap())
             }
+            users { cache, description ->
+                MapEntryCache(cache, description, MapLikeCollection.concurrentHashMap())
+            }
         }
         enableShutdownHook = true
     }
+    webHost = embeddedServer(Netty, port = if(instanceBot.isTest) 8081 else 8080,
+        host = "0.0.0.0", module = Application::module).start(false)
+
     logger = kordLogger
 
-    if (instanceBot.isTest) logger.warn("!!!TESTMODE!!!")
+    if (instanceBot.isTest) {
+        logger.warn("!!!TESTMODE!!!")
+    }
     autoSave = DataManager.autoSave()
-    DataManager.dataCleanup(memberList)
+    //DataManager.dataCleanup(memberList)
 
     instance.on<Event> { Events.handle(this) }
     instance.login {

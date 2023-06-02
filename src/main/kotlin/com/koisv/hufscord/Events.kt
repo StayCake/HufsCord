@@ -73,7 +73,7 @@ object Events {
                     since = Clock.System.now()
                 }
                 InteractionHandler.regCmd()
-                coroutineScope {
+                if (!instanceBot.isTest) coroutineScope {
                     withContext(Dispatchers.IO) {
                         launch {
                             getNotice(0)
