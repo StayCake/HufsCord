@@ -21,7 +21,7 @@ object KtorClient {
         install(Logging) {
             logger = object : Logger {
                 override fun log(message: String) {
-                    kordLogger.debug(message)
+                    kordLogger.trace(message)
                 }
             }
             level = LogLevel.BODY

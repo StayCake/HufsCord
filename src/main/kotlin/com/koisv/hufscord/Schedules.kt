@@ -102,7 +102,7 @@ class Schedules {
                         }
                     }
                     finPost.forEach { it.send(type, 1111639241861115965) }*/
-                    delay(3.hours)
+                    delay(2.hours)
                 }
             }
         }
@@ -150,13 +150,13 @@ class Schedules {
         suspend fun getFood(): Job {
             return CoroutineScope(Dispatchers.IO).launch {
                 while (isActive) {
-                    if (date.dayOfWeek.value == 1
-                        && mealCache.values.any { meals -> meals.any { it.key.daysUntil(date.date) >= 13 } }) {
-                        CafeteriaCode.values().forEach {
-                            mealCache[it.strCode] = requestFood(it.intCode)
-                            delay(1.minutes)
-                        }
+                    CafeteriaCode.values().forEach { cc ->
+                        if (date.dayOfWeek.value == 1 && mealCache.values.any {
+                            meals -> meals.any { it.key.daysUntil(date.date) >= 13 }
+                        } || mealCache[cc.strCode]?.isEmpty() != false
+                        ) mealCache[cc.strCode] = requestFood(cc.intCode)
                     }
+                    delay(1.minutes)
                 }
             }
         }
@@ -178,16 +178,16 @@ class Schedules {
                         .format(DateTimeFormatter.ofPattern("yyyyMMdd")))
                     parameter("caf_id", "h$id")
                 }
-            }.bodyAsText().lowercase()
+            }.bodyAsText()
 
-            val rows = reqData.split("<tr height='35'>").toMutableList()
+            val rows = reqData.split("<TR height='35'>").toMutableList()
             rows.removeFirst()
             val dates = rows.removeFirst().dateArray()
             val data = rows.map { it.tableData() }
 
             val menuTable = mutableListOf<Array<Any?>>()
             data.forEach { work ->
-                val type = work.toMutableList()
+                val type = work.take(14).toMutableList()
                 val typeLabel = type.removeFirst()[0]
                 val name = typeLabel
                     .split("!")[0]
@@ -236,7 +236,7 @@ class Schedules {
             )
         }
         private fun String.tableData(): List<List<String>> {
-            return split("liststyle")
+            return split("listStyle")
                 .asSequence()
                 .map { it.replace("<br>", "!") }
                 .map { it.replace("<한정특식>", "[한정특식]") }
@@ -281,6 +281,7 @@ class Schedules {
 fun MutableList<String>.finalize(): List<SitePost> {
     val newList = mutableListOf<SitePost>()
     forEach { data ->
+        val oRegex = Regex("/\\[[가-힣]+\\]/")
         if ("<span class=\"mini_eng\">" in data) {
             val spD = data.split("<span class=\"mini_eng\">").toMutableList()
             spD.removeAt(0)
@@ -288,12 +289,13 @@ fun MutableList<String>.finalize(): List<SitePost> {
             val number = spD[0].split("</span>")[0].filterNot { it.isWhitespace() }.toIntOrNull() ?: 0
             val type = spD[0].split("<td class=\"title\">")[1]
                 .split("<a href=")[0].myFilter()
-
             val code = spD[0].split("&boardSeq=")[1].split("'>")[0].toIntOrNull() ?: 0
             val title = spD[0].split("'>")[1].split("&")[0].myFilter()
             val poster = spD[1].split("</span>")[0].myFilter()
             val date = LocalDate.parse(spD[2].split("</span>")[0].filterNot { it.isWhitespace() })
-            newList.add(SitePost(number, code, if (type.isNotBlank()) type else "[공통]", title, poster, date))
+
+            newList.add(SitePost(number, code,
+                type.ifBlank { if (title matches oRegex) oRegex.find(title)!!.value else "[공통]" }, title, poster, date))
         } else {
             val spD = data.split("<td class=\"no\">")[1]
             val number = spD.split("</td>")[0].filterNot { it.isWhitespace() }.toIntOrNull() ?: 0
@@ -306,7 +308,8 @@ fun MutableList<String>.finalize(): List<SitePost> {
                     .split("</td>")[0]
                     .filterNot { it.isWhitespace() }
             )
-            newList.add(SitePost(number, code, type, title, poster, date))
+            newList.add(SitePost(number, code,
+                type.ifBlank { if (title matches oRegex) oRegex.find(title)!!.value else "[공통]" }, title, poster, date))
         }
     }
     return newList

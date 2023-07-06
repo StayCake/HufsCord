@@ -42,7 +42,7 @@ object Events {
         }
     }
     suspend fun verifyThreadClose(channel: TextChannel, id: Snowflake) {
-        channel.activeThreads.firstOrNull { it.name == "인증-$id" }
+        channel.activeThreads.firstOrNull { it.name.endsWith(id.toString()) }
             ?.delete("인증 완료 | $id")
     }
 

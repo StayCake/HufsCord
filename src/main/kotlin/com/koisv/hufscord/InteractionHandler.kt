@@ -118,9 +118,9 @@ object InteractionHandler {
                 val data = it[day]
                 if (data != null) {
                     e.interaction.channel.createMessage {
-                        actionRow { buildSelect(mealCode, day) }
+                        //actionRow { buildNavi(data, mealCode, day) }
                         embed { data.meals[0]?.let { meal -> buildForm(meal, codeFind) } }
-                        actionRow { buildNavi(data, mealCode, day) }
+                        actionRow { buildSelect(mealCode, day) }
                     }
                 }
             }
@@ -133,13 +133,20 @@ object InteractionHandler {
             for (i in mealCache.keys) {
                 if (myCode != i.lowercase()) {
                     val code = CafeteriaCode.values().find { c -> c.strCode == i }
+                    println(code)
                     code?.vName?.let { name ->
-                        option(name,
-                            "meal${
-                                if (code.intCode > 200) "G" else "S"
-                            }-${code.strCode}-${
-                                day.toJavaLocalDate().format(dateFormat)
-                            }-0")
+                        option(
+                            name,
+                            buildString {
+                                append("meal")
+                                append(if (code.intCode > 200) "G" else "S")
+                                append("-")
+                                append(code.strCode)
+                                append("-")
+                                append(day.toJavaLocalDate().format(dateFormat))
+                                append("-0")
+                            }
+                        )
                     }
                 }
             }
@@ -156,11 +163,11 @@ object InteractionHandler {
         val mealTime = meal.time
         val timeFormat = DateTimeFormatter.ofPattern("hh:mm")
         footer {
-            text = "${
-                mealTime.first.toJavaLocalTime().format(timeFormat)
-            } ~ ${
-                mealTime.second.toJavaLocalTime().format(timeFormat)
-            }"
+            text = buildString {
+                append(mealTime.first.toJavaLocalTime().format(timeFormat))
+                append(" ~ ")
+                append(mealTime.second.toJavaLocalTime().format(timeFormat))
+            }
         }
         field {
             name = if (meal.isSpecial) "특별식" else if (meal.menus.isNotEmpty()) "일반식" else "<메뉴 없음>"

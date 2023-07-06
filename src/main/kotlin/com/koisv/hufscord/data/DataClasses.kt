@@ -70,6 +70,6 @@ enum class CafeteriaCode {
     constructor(vName: String, strCode: String, intCode: Int) {
         this.strCode = strCode
         this.intCode = intCode
-        this.vName = name
+        this.vName = vName
     }
 }

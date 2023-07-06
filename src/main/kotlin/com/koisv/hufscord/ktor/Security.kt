@@ -32,10 +32,16 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlin.collections.set
 
 val urMap = mapOf(
-    Pair("컴퓨터전자시스템공학전공", "컴퓨터공학부"),
+    Pair("영어통번역학전공", "영어통번역학과"),
+    Pair("컴퓨터.전자시스템공학전공", "컴퓨터공학부"),
+    Pair("경제학전공", "경제학부"),
+    Pair("일본언어문화전공", "일본언어문화학부"),
+    Pair("영어학과", "ELLT학과"),
 )
 val drMap = mapOf(
+    Pair("영어통번역학부", "영어통번역학과"),
     Pair("컴퓨터전자시스템공학부", "컴퓨터공학부"),
+    Pair("ELLT/영어학과", "ELLT학과"),
 )
 
 fun Application.configureSecurity() {
@@ -94,7 +100,12 @@ fun Application.configureSecurity() {
                     val findMember = instance.guilds.first().members.filter {it.asUser().id == data.linkedDSU}.firstOrNull()
                     if (findMember != null) {
                         memberList.add(data)
-                        findMember.addRole(
+                        if (data.type == LinkedUser.Type.Professor)
+                            findMember.addRole(
+                                Snowflake(1118361155790962698),
+                                "인증 완료 자동 지급 | 교직원"
+                            )
+                        else findMember.addRole(
                             Snowflake(1111677272693420052),
                             "인증 완료 자동 지급 | 외대생"
                         )
@@ -112,7 +123,12 @@ fun Application.configureSecurity() {
                 } else if (memberList.any { it.linkedDSU == data.linkedDSU && it.googleID == data.googleID }) {
                     val findMember = instance.guilds.first().members.filter {it.asUser().id == data.linkedDSU}.firstOrNull()
                     if (findMember != null) {
-                        findMember.addRole(
+                        if (data.type == LinkedUser.Type.Professor)
+                            findMember.addRole(
+                                Snowflake(1118361155790962698),
+                                "인증 복원 자동 지급 | 교직원"
+                            )
+                        else findMember.addRole(
                             Snowflake(1111677272693420052),
                             "인증 복원 자동 지급 | 외대생"
                         )
@@ -125,7 +141,7 @@ fun Application.configureSecurity() {
                             |alert("이전 인증 이력이 복원되었습니다!\n이제 창을 닫으셔도 됩니다.")
                             |window.close()
                             |</script></body></html>""".trimMargin(),
-                        ContentType.Text.Html, HttpStatusCode.OK)
+                            ContentType.Text.Html, HttpStatusCode.OK)
                     } else call.respondText("서버에 참여 후 인증하셔야 합니다!")
                 } else if (memberList.any { it.linkedDSU == data.linkedDSU || it.googleID == data.googleID })
                     call.respondText("인증 이력이 존재하는 계정입니다! 관리자에게 문의하세요.")
@@ -147,6 +163,7 @@ fun GoogleInfo.finalize(s: String): LinkedUser {
         when (givenName.split("[")[1].split(" ")[0]) {
             "재학" -> LinkedUser.Type.Attend
             "졸업" -> LinkedUser.Type.Graduate
+            "교수" -> LinkedUser.Type.Professor
             else -> LinkedUser.Type.Other
         }
     val major = givenName.split(" ")[2]
@@ -170,7 +187,7 @@ suspend fun Member.campusFind(major: String) {
     }.bodyAsText()
         .split("sm_wrap03")[1]
         .split("sm_wrap04")[0]
-        //.replace(Regex("/[ㆍ·]/gm"), "-") // 사이트 좀 이쁘게 만들어 주세요 제발
+    //.replace(Regex("/[ㆍ·]/gm"), "-") // 사이트 좀 이쁘게 만들어 주세요 제발
 
     var workMj = major
     for ((old, new) in drMap) if (old in campusList) campusList.replace(old, new)
