@@ -76,6 +76,7 @@ object Events {
                 if (!instanceBot.isTest) coroutineScope {
                     withContext(Dispatchers.IO) {
                         launch {
+                            getFood()
                             getNotice(0)
                             delay(1.minutes)
                             getNotice(1)
@@ -84,7 +85,6 @@ object Events {
                             delay(1.minutes)
                             getNotice(3)
                             delay(1.minutes)
-                            getFood()
                         }
                     }
                 }

@@ -1,6 +1,8 @@
 package com.koisv.hufscord
 
-import com.koisv.hufscord.data.*
+import com.koisv.hufscord.data.DataManager
+import com.koisv.hufscord.data.tGid
+import com.koisv.hufscord.func.Meals.sendMeal
 import com.koisv.hufscord.ktor.KtorClient.httpClient
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.DiscordPartialEmoji
@@ -12,16 +14,11 @@ import dev.kord.core.entity.channel.TextChannel
 import dev.kord.core.event.interaction.ButtonInteractionCreateEvent
 import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
-import dev.kord.rest.builder.component.ActionRowBuilder
-import dev.kord.rest.builder.component.option
 import dev.kord.rest.builder.interaction.string
-import dev.kord.rest.builder.message.EmbedBuilder
 import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 import kotlinx.coroutines.delay
-import kotlinx.datetime.*
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import kotlinx.datetime.Clock
 import kotlin.system.exitProcess
 
 object InteractionHandler {
@@ -106,114 +103,6 @@ object InteractionHandler {
                 }
             }
             else -> {}
-        }
-    }
-
-    private suspend fun sendMeal(e: GuildChatInputCommandInteractionCreateEvent) {
-        val mealCode = e.interaction.command.strings["위치"]
-        val codeFind = CafeteriaCode.values().find { it.strCode == mealCode }
-        if (mealCode != null && codeFind != null) {
-            mealCache[mealCode]?.let {
-                val day = LocalDate.now().toKotlinLocalDate()
-                val data = it[day]
-                if (data != null) {
-                    e.interaction.channel.createMessage {
-                        //actionRow { buildNavi(data, mealCode, day) }
-                        embed { data.meals[0]?.let { meal -> buildForm(meal, codeFind) } }
-                        actionRow { buildSelect(mealCode, day) }
-                    }
-                }
-            }
-        }
-    }
-
-    private fun ActionRowBuilder.buildSelect(myCode: String, day: kotlinx.datetime.LocalDate) {
-        val dateFormat = DateTimeFormatter.ofPattern("yyMMdd")
-        stringSelect("mealSelect") {
-            for (i in mealCache.keys) {
-                if (myCode != i.lowercase()) {
-                    val code = CafeteriaCode.values().find { c -> c.strCode == i }
-                    println(code)
-                    code?.vName?.let { name ->
-                        option(
-                            name,
-                            buildString {
-                                append("meal")
-                                append(if (code.intCode > 200) "G" else "S")
-                                append("-")
-                                append(code.strCode)
-                                append("-")
-                                append(day.toJavaLocalDate().format(dateFormat))
-                                append("-0")
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private suspend fun EmbedBuilder.buildForm(meal: Meal, mealCode: CafeteriaCode) {
-        author {
-            name = "${if (mealCode.intCode > 200) "[글로벌]" else "[서울]"} ${mealCode.vName}"
-            icon = instance.getSelf().avatar?.cdnUrl?.toUrl()
-        }
-        title = "${meal.name} | ${meal.price}원"
-        if (meal.kcal != 0) title += " | ${meal.kcal} kcal"
-        val mealTime = meal.time
-        val timeFormat = DateTimeFormatter.ofPattern("hh:mm")
-        footer {
-            text = buildString {
-                append(mealTime.first.toJavaLocalTime().format(timeFormat))
-                append(" ~ ")
-                append(mealTime.second.toJavaLocalTime().format(timeFormat))
-            }
-        }
-        field {
-            name = if (meal.isSpecial) "특별식" else if (meal.menus.isNotEmpty()) "일반식" else "<메뉴 없음>"
-            value = if (meal.menus.isNotEmpty()) meal.menus.joinToString("\n")
-            else "오늘은 메뉴가 없어요~"
-        }
-        timestamp = Clock.System.now()
-    }
-
-    private fun ActionRowBuilder.buildNavi(
-        meals: DayMeal,
-        myCode: String,
-        day: kotlinx.datetime.LocalDate,
-        index: Int = 0
-    ) {
-        val codeFind = CafeteriaCode.values().find { it.strCode == myCode }
-        val dateFormat = DateTimeFormatter.ofPattern("yyMMdd")
-        interactionButton(
-            if (meals.isFirstDay) ButtonStyle.Danger else ButtonStyle.Primary,
-            "meal${if (codeFind?.intCode!! > 200) "G" else "S"}-$myCode-${
-                day.minus(DatePeriod(days = 1)).toJavaLocalDate()
-                    .format(dateFormat)
-            }-${index-1}") {
-            emoji = DiscordPartialEmoji(null , "◀")
-            label = "어제"
-            disabled = meals.isFirstDay
-        }
-        for (i in meals.meals.indices) {
-            interactionButton(ButtonStyle.Primary,
-                "meal${if (codeFind.intCode > 200) "G" else "S"}-$myCode-${
-                    day.toJavaLocalDate().format(dateFormat)
-                }-$i") {
-                emoji = DiscordPartialEmoji(null , "▶")
-                label = meals.meals[index]?.name
-                disabled = i == 0
-            }
-        }
-        interactionButton(
-            if (meals.isLastDay) ButtonStyle.Danger else ButtonStyle.Primary,
-            "mealG-$myCode-${
-                day.plus(DatePeriod(days = 1)).toJavaLocalDate()
-                    .format(dateFormat)
-            }-${index+1}") {
-            emoji = DiscordPartialEmoji(null , "▶")
-            label = "내일"
-            disabled = meals.isLastDay
         }
     }
 
