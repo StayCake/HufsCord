@@ -73,7 +73,7 @@ object Events {
                     since = Clock.System.now()
                 }
                 InteractionHandler.regCmd()
-                if (!instanceBot.isTest) coroutineScope {
+                coroutineScope {
                     withContext(Dispatchers.IO) {
                         launch {
                             getFood()

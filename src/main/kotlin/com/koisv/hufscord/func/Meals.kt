@@ -5,6 +5,7 @@ import com.koisv.hufscord.data.CafeteriaCode
 import com.koisv.hufscord.data.DayMeal
 import com.koisv.hufscord.data.Meal
 import com.koisv.hufscord.instance
+import com.koisv.hufscord.logger
 import com.koisv.hufscord.mealCache
 import dev.kord.common.entity.ButtonStyle
 import dev.kord.common.entity.DiscordPartialEmoji
@@ -17,6 +18,7 @@ import dev.kord.rest.builder.message.create.actionRow
 import dev.kord.rest.builder.message.create.embed
 import io.ktor.http.*
 import io.ktor.server.util.*
+import io.ktor.util.*
 import kotlinx.datetime.*
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
@@ -40,9 +42,9 @@ object Meals {
                 val data = it[day]
                 if (data != null) {
                     e.interaction.channel.createMessage {
-                        //actionRow { mealNavi(data, mealCode, day) }
                         embed { data.meals[0]?.let { meal -> mealForm(meal, codeFind) } }
                         actionRow { mealSelect(mealCode, day) }
+                        actionRow { mealNavi(data, mealCode, day) }
                     }
                 }
             }
@@ -144,19 +146,44 @@ object Meals {
     fun requestFood(id: Int): MutableMap<KLocalDate, DayMeal> {
         val firstDay = Schedules.date.date.toJavaLocalDate()
             .with(WeekFields.of(Locale.KOREA).dayOfWeek(), 2L)
+
+        logger.debug(url {
+            protocol = URLProtocol.HTTPS
+            host = "wis.hufs.ac.kr"
+            path("jsp/HUFS/cafeteria/viewWeek.jsp")
+            parameters.appendAll(
+                StringValues.build {
+                    append(
+                        "startDt", firstDay.minusDays(7)
+                            .format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+                    )
+                    append(
+                        "endDt", firstDay.plusDays(7)
+                            .format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+                    )
+                    append("caf_id", "h$id")
+                }
+            )
+        })
+
         val newJsoup = Jsoup.connect(
             url {
                 protocol = URLProtocol.HTTPS
                 host = "wis.hufs.ac.kr"
                 path("jsp/HUFS/cafeteria/viewWeek.jsp")
-                parameters {
-                    append("startDt", firstDay.minusDays(7)
-                        .format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-                    )
-                    append("endDt", firstDay.plusDays(7)
-                        .format(DateTimeFormatter.ofPattern("yyyyMMdd")))
-                    append("caf_id", "h$id")
-                }
+                parameters.appendAll(
+                    StringValues.build {
+                        append(
+                            "startDt", firstDay.minusDays(7)
+                                .format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+                        )
+                        append(
+                            "endDt", firstDay.plusDays(7)
+                                .format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+                        )
+                        append("caf_id", "h$id")
+                    }
+                )
             }
         ).get()
 
@@ -168,6 +195,7 @@ object Meals {
             .withLocale(Locale.KOREAN)
             .withZone(ZoneId.systemDefault())
 
+        if (jsRow.isEmpty()) return mutableMapOf()
         val menuRow = jsRow.subList(1, jsRow.size).filter { mainElement ->
             mainElement.select("td").any { it.select("table").size > 0 }
         }

@@ -104,8 +104,8 @@ class Schedules {
                     CafeteriaCode.values().forEach { cc ->
                         if (
                             mealCache.values.any { meals ->
-                                meals.any { it.key.daysUntil(date.date) >= 13 }
-                            } || !mealCache.containsKey(cc.strCode)
+                                meals.any { it.key.daysUntil(date.date) >= 13 } || meals.size != 15 }
+                                || !mealCache.containsKey(cc.strCode)
                         ) mealCache[cc.strCode] = requestFood(cc.intCode)
                         delay(1.minutes)
                     }
